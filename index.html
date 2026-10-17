@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Java after 8: LTS recap</title>
+<style>
+/* ===== 1. Design tokens: edit these first ===== */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --text: #1d2330; --muted: #5f6b7e;
+  --border: #dde1e8; --accent: #c2410c; --code-bg: #f0f2f5;
+  --tag-lang: #1d6fd1; --tag-jvm: #0f8a5f; --tag-lib: #8a4fd1; --tag-prev: #b7791f; --tag-dep: #d9480f; --tag-rem: #b42318; --tag-doc: #0e7490;
+  --radius: 10px; --max-width: 820px;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tag-dep: #ff9a62; --tag-rem: #f38b82; --tag-doc: #4cc9e0;
+    --bg: #12151c; --surface: #1b202b; --text: #e6e9ef; --muted: #9aa5b8;
+    --border: #2d3544; --accent: #fb923c; --code-bg: #12161e;
+    --tag-lang: #5aa2f0; --tag-jvm: #3cc690; --tag-lib: #b98af0; --tag-prev: #e3b04b;
+  }
+}
+:root[data-theme="dark"] {
+  --tag-dep: #ff9a62; --tag-rem: #f38b82; --tag-doc: #4cc9e0;
+  --bg: #12151c; --surface: #1b202b; --text: #e6e9ef; --muted: #9aa5b8;
+  --border: #2d3544; --accent: #fb923c; --code-bg: #12161e;
+  --tag-lang: #5aa2f0; --tag-jvm: #3cc690; --tag-lib: #b98af0; --tag-prev: #e3b04b;
+}
+
+/* ===== 2. Layout ===== */
+:root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 70px); scroll-behavior: smooth; }
+*, *::before, *::after { box-sizing: inherit; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 var(--font-body); }
+main { max-width: var(--max-width); margin: 0 auto; padding: 1rem 1rem 4rem; }
+header h1 { margin: 1.5rem 0 .25rem; font-size: 1.8rem; }
+header p { margin: 0; color: var(--muted); }
+
+/* ===== 3. Toolbar ===== */
+.toolbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+  padding: .6rem 0; margin-top: 1rem; background: var(--bg); border-bottom: 1px solid var(--border); }
+.toolbar a, .toolbar button { font: inherit; font-size: .9rem; padding: .3rem .8rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); text-decoration: none; }
+.toolbar a:hover, .toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.toolbar .spacer { flex: 1; }
+
+/* ===== 3b. Type filter chips ===== */
+.filters { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.filters .label { font-size: .8rem; color: var(--muted); margin-right: .2rem; }
+.chip[data-type="lang"] { --chip-color: var(--tag-lang); }
+.chip[data-type="jvm"] { --chip-color: var(--tag-jvm); }
+.chip[data-type="lib"] { --chip-color: var(--tag-lib); }
+.chip[data-type="prev"] { --chip-color: var(--tag-prev); }
+.chip[data-type="dep"] { --chip-color: var(--tag-dep); }
+.chip[data-type="rem"] { --chip-color: var(--tag-rem); }
+.chip[data-type="doc"] { --chip-color: var(--tag-doc); }
+.chip[data-type] { border-color: var(--chip-color); color: var(--chip-color); }
+.toolbar .chip[aria-pressed="true"] { font-weight: 700; box-shadow: inset 0 0 0 1px var(--chip-color); border-color: var(--chip-color); color: var(--chip-color); }
+.toolbar .chip[aria-pressed="true"]::before { content: "✓ "; }
+.toolbar .chip[aria-pressed="false"][data-type] { opacity: .75; }
+.toolbar .chip[data-type]:hover { color: var(--chip-color); border-color: var(--chip-color); opacity: 1; }
+
+/* ===== 4. LTS section ===== */
+.lts { margin-top: 2rem; }
+.lts > h2 { display: flex; align-items: baseline; gap: .75rem; margin: 0 0 .25rem; font-size: 1.5rem; }
+.lts > h2 small { font-size: .85rem; font-weight: 400; color: var(--muted); }
+.lts > .takeaway { margin: 0 0 .75rem; color: var(--muted); font-size: .92rem; }
+.features { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+
+/* ===== 5. Feature (expandable) ===== */
+.feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.feature[open] { border-color: var(--accent); }
+.feature > summary { cursor: pointer; padding: .65rem .9rem; display: flex; gap: .6rem; align-items: baseline; list-style: none; }
+.feature > summary::-webkit-details-marker { display: none; }
+.feature > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.feature[open] > summary::before { transform: rotate(90deg); color: var(--accent); }
+.feature .name { font-weight: 600; }
+.feature .since { margin-left: auto; font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.feature .body { padding: 0 .9rem .9rem 2rem; }
+.feature .body p { margin: .3rem 0 .6rem; }
+
+/* ===== 6. Tags ===== */
+.tag { font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: .05rem .45rem; border-radius: 4px;
+  border: 1px solid currentColor; }
+.tag.lang { color: var(--tag-lang); } .tag.jvm { color: var(--tag-jvm); }
+.tag.lib { color: var(--tag-lib); } .tag.prev { color: var(--tag-prev); } .tag.dep { color: var(--tag-dep); } .tag.rem { color: var(--tag-rem); } .tag.doc { color: var(--tag-doc); }
+.features > li.minor .feature { border-style: dashed; }
+.features > li.minor .name { font-weight: 500; }
+.minor-toggle { margin-left: auto; display: flex; gap: .35rem; align-items: center; font-size: .85rem; color: var(--muted); cursor: pointer; }
+
+
+/* ===== 7. Code ===== */
+pre { margin: .5rem 0; padding: .75rem .9rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  overflow-x: auto; font: .85rem/1.45 var(--font-code); }
+code { font-family: var(--font-code); font-size: .88em; background: var(--code-bg); padding: .05rem .3rem; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+.feature .body .jep { font-size: .85rem; color: var(--muted); margin: .6rem 0 0; }
+.feature .body .jep a { color: var(--accent); }
+
+footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Java after 8: LTS recap</h1>
+  <p>Main language features and important JVM changes. Click any item to expand it.</p>
+</header>
+
+<nav class="toolbar">
+  <a href="#j11">Java 11</a><a href="#j17">Java 17</a><a href="#j21">Java 21</a><a href="#j25">Java 25</a>
+  <span class="spacer"></span>
+  <button id="expand">Expand all</button><button id="collapse">Collapse all</button>
+  <div class="filters" role="group" aria-label="Filter by type">
+    <span class="label">Filter:</span>
+    <button class="chip" id="chip-all" aria-pressed="true">All</button>
+    <button class="chip" data-type="lang" aria-pressed="false">Lang</button>
+    <button class="chip" data-type="jvm" aria-pressed="false">JVM</button>
+    <button class="chip" data-type="lib" aria-pressed="false">Lib</button>
+    <button class="chip" data-type="doc" aria-pressed="false" title="Javadoc and documentation tooling">Javadoc</button>
+    <button class="chip" data-type="prev" aria-pressed="false">Preview</button>
+    <button class="chip" data-type="dep" aria-pressed="false" title="Deprecated, or deprecated for removal">Deprecated</button>
+    <button class="chip" data-type="rem" aria-pressed="false" title="Removed or permanently disabled">Removed</button>
+    <label class="minor-toggle" title="Hide cards marked as less important (dashed border)"><input type="checkbox" id="minor-toggle" checked> Show less important items (dashed)</label>
+  </div>
+</nav>
+
+<!-- ================= JAVA 11 ================= -->
+<section class="lts" id="j11">
+  <h2>Java 11 <small>covers 9–11</small></h2>
+  <p class="takeaway">Mostly a migration hurdle (modules, encapsulation) with few language gains.</p>
+  <ul class="features">
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name"><code>var</code> for locals</span><span class="since">10</span></summary><div class="body">
+      <p>Local variables only. Still static typing; the type is inferred. <code>var list = new ArrayList&lt;&gt;()</code> infers <code>ArrayList&lt;Object&gt;</code>.</p>
+<pre><code>var users = new ArrayList&lt;User&gt;();
+BiFunction&lt;Integer,Integer,Integer&gt; add = (var a, var b) -&gt; a + b; // 11</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/286" target="_blank" rel="noopener">JEP 286: Local-Variable Type Inference</a> &middot; <a href="https://openjdk.org/jeps/323" target="_blank" rel="noopener">JEP 323: Local-Variable Syntax for Lambda Parameters</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Module system (JPMS)</span><span class="since">9</span></summary><div class="body">
+      <p>Most apps stay on the classpath. The real impact: JDK internals are encapsulated. In 11 reflective access only warns; 17 makes it an error.</p>
+<pre><code>module com.example.app {
+    requires java.sql;
+    exports com.example.app.api;
+    opens com.example.app.model to com.fasterxml.jackson.databind;
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/261" target="_blank" rel="noopener">JEP 261: Module System</a> &middot; <a href="https://openjdk.org/jeps/260" target="_blank" rel="noopener">JEP 260: Encapsulate Most Internal APIs</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">G1 default, ZGC and Epsilon (experimental)</span><span class="since">9–11</span></summary><div class="body">
+      <p>G1 is the default GC. ZGC targets very low pauses on large heaps; Epsilon never reclaims memory (benchmarks, short jobs).</p>
+<pre><code>java -XX:+UseParallelGC -jar app.jar     # go back to Parallel
+java -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -jar app.jar</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/248" target="_blank" rel="noopener">JEP 248: Make G1 the Default Garbage Collector</a> &middot; <a href="https://openjdk.org/jeps/333" target="_blank" rel="noopener">JEP 333: ZGC: A Scalable Low-Latency Garbage Collector (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/318" target="_blank" rel="noopener">JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Container awareness</span><span class="since">10</span></summary><div class="body">
+      <p>The JVM respects cgroup CPU and memory limits (backported to 8u191). Prefer percentages over hardcoded <code>-Xmx</code>.</p>
+<pre><code>java -XX:MaxRAMPercentage=75 -jar app.jar</code></pre></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Java Flight Recorder open-sourced</span><span class="since">11</span></summary><div class="body">
+      <p>Low-overhead production profiling, built in. Open the file in JDK Mission Control.</p>
+<pre><code>java -XX:StartFlightRecording=duration=60s,filename=rec.jfr -jar app.jar
+jcmd &lt;pid&gt; JFR.dump name=adhoc filename=rec.jfr</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/328" target="_blank" rel="noopener">JEP 328: Flight Recorder</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Single-file launch</span><span class="since">11</span></summary><div class="body">
+      <p>Run a source file without an explicit <code>javac</code> step. Works as a script with a shebang.</p>
+<pre><code>java Hello.java arg1 arg2</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/330" target="_blank" rel="noopener">JEP 330: Launch Single-File Source-Code Programs</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">TLS 1.3</span><span class="since">11</span></summary><div class="body">
+      <p>Enabled by default (backported to 8u261). Escape hatch for old middleboxes:</p>
+<pre><code>-Djdk.tls.client.protocols=TLSv1.2</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/332" target="_blank" rel="noopener">JEP 332: Transport Layer Security (TLS) 1.3</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Collector overview: Serial, Parallel, G1, ZGC, Epsilon</span><span class="since">9–11</span></summary><div class="body">
+      <p><strong>Serial:</strong> tiny heaps, single CPU. <strong>Parallel:</strong> max throughput for batch jobs. <strong>G1:</strong> balanced default. <strong>ZGC:</strong> low latency, experimental in 11. <strong>Epsilon:</strong> no-op. The JVM silently falls back to Serial when it sees under 2 CPUs or about 1.8 GB RAM, which often surprises people in small containers.</p>
+<pre><code>-XX:+UseSerialGC   -XX:+UseParallelGC   -XX:+UseG1GC</code></pre></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Unified logging (<code>-Xlog</code>)</span><span class="since">9</span></summary><div class="body">
+      <p>One logging framework for all JVM subsystems; replaces the old <code>-XX:+PrintGC*</code> flags.</p>
+<pre><code>java -Xlog:gc*:file=gc.log:time,uptime,level,tags -jar app.jar</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/158" target="_blank" rel="noopener">JEP 158: Unified JVM Logging</a> &middot; <a href="https://openjdk.org/jeps/271" target="_blank" rel="noopener">JEP 271: Unified GC Logging</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Compact strings</span><span class="since">9</span></summary><div class="body">
+      <p>Latin-1 strings are stored as one byte per char instead of two. Automatic, often a noticeable heap saving on string-heavy apps.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/254" target="_blank" rel="noopener">JEP 254: Compact Strings</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name"><code>jshell</code> REPL</span><span class="since">9</span></summary><div class="body">
+      <p>Interactive shell for trying out code and APIs without a project.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/222" target="_blank" rel="noopener">JEP 222: jshell: The Java Shell (Read-Eval-Print Loop)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Multi-release JARs</span><span class="since">9</span></summary><div class="body">
+      <p>One JAR can ship version-specific classes under <code>META-INF/versions/N</code>.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/238" target="_blank" rel="noopener">JEP 238: Multi-Release JAR Files</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name"><code>jlink</code> runtime images</span><span class="since">9</span></summary><div class="body">
+      <p>Builds a trimmed runtime image; use <code>jdeps --print-module-deps</code> to find the modules.</p>
+<pre><code>jlink --add-modules java.base,java.sql --output runtime</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/282" target="_blank" rel="noopener">JEP 282: jlink: The Java Linker</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Standard <code>HttpClient</code> (HTTP/2)</span><span class="since">11</span></summary><div class="body">
+      <p>Replaces <code>HttpURLConnection</code> for most uses. Immutable, reusable, supports async and WebSocket.</p>
+<pre><code>var client = HttpClient.newHttpClient();
+var req = HttpRequest.newBuilder(URI.create("https://api.example.com")).GET().build();
+var resp = client.send(req, BodyHandlers.ofString());
+client.sendAsync(req, BodyHandlers.ofString()).thenApply(HttpResponse::body);</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/321" target="_blank" rel="noopener">JEP 321: HTTP Client API</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Immutable collection factories</span><span class="since">9–11</span></summary><div class="body">
+<pre><code>List.of(1, 2);  Set.of("a");  Map.of("k", 1);        // immutable</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/269" target="_blank" rel="noopener">JEP 269: Convenience Factory Methods for Collections</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Optional additions</span><span class="since">9–11</span></summary><div class="body">
+<pre><code>opt.ifPresentOrElse(use, orElse);  opt.or(() -&gt; alt);  opt.isEmpty();</code></pre></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Stream <code>takeWhile</code> / <code>dropWhile</code></span><span class="since">9</span></summary><div class="body">
+<pre><code>stream.takeWhile(x -&gt; x &lt; 10);  stream.dropWhile(...);</code></pre></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Process API (<code>ProcessHandle</code>)</span><span class="since">9</span></summary><div class="body">
+<pre><code>ProcessHandle.current().pid();                      // process API</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/102" target="_blank" rel="noopener">JEP 102: Process API Updates</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Flow (reactive-streams interfaces)</span><span class="since">9</span></summary><div class="body">
+      <p><code>Publisher</code>, <code>Subscriber</code>, <code>Subscription</code> and <code>Processor</code> in <code>java.util.concurrent.Flow</code>; a common base for reactive libraries.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/266" target="_blank" rel="noopener">JEP 266: More Concurrency Updates</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">CMS garbage collector</span><span class="since">9</span></summary><div class="body">
+      <p>Deprecated in 9; removed in 14.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/291" target="_blank" rel="noopener">JEP 291: Deprecate the Concurrent Mark Sweep (CMS) Garbage Collector</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Nashorn JavaScript engine</span><span class="since">11</span></summary><div class="body">
+      <p>Deprecated in 11, removed in 15. Use GraalJS or another engine if you embed JavaScript.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/335" target="_blank" rel="noopener">JEP 335: Deprecate the Nashorn JavaScript Engine for Removal</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Pack200</span><span class="since">11</span></summary><div class="body">
+      <p>Deprecated in 11; removed in 14.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/336" target="_blank" rel="noopener">JEP 336: Deprecate the Pack200 Tools and API</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Applet API</span><span class="since">9</span></summary><div class="body">
+      <p>Deprecated in 9 as browsers dropped plugin support; deprecated for removal in 17.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/289" target="_blank" rel="noopener">JEP 289: Deprecate the Applet API</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Java EE and CORBA modules removed</span><span class="since">11</span></summary><div class="body">
+      <p>JAXB, JAX-WS, <code>javax.activation</code>, <code>javax.annotation</code> and CORBA are gone from the JDK. Add them as Maven/Gradle dependencies (Jakarta artifacts). A classic 8→11 compile error.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/320" target="_blank" rel="noopener">JEP 320: Remove the Java EE and CORBA Modules</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">JavaFX no longer bundled</span><span class="since">11</span></summary><div class="body">
+      <p>JavaFX left the JDK in 11 and lives on as the separate OpenJFX project.</p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Java Web Start</span><span class="since">11</span></summary><div class="body">
+      <p>Java Web Start (<code>javaws</code>) was removed in 11.</p></div></details></li>
+  </ul>
+</section>
+
+<!-- ================= JAVA 17 ================= -->
+<section class="lts" id="j17">
+  <h2>Java 17 <small>covers 12–17</small></h2>
+  <p class="takeaway">The big language jump: records, sealed types, switch expressions, text blocks.</p>
+  <ul class="features">
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Records</span><span class="since">16</span></summary><div class="body">
+      <p>Shallowly immutable data carriers with generated <code>equals</code>, <code>hashCode</code>, <code>toString</code>. Not JPA entities; Jackson needs 2.12+.</p>
+<pre><code>public record Point(int x, int y) {
+    public Point {                       // compact constructor
+        if (x &lt; 0 || y &lt; 0) throw new IllegalArgumentException();
+    }
+}
+new Point(1, 2).x();                     // accessor, no "get"</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/395" target="_blank" rel="noopener">JEP 395: Records</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Sealed classes</span><span class="since">17</span></summary><div class="body">
+      <p>Closed hierarchies the compiler knows completely. With records, this is Java's algebraic data types; pays off with pattern <code>switch</code> in 21.</p>
+<pre><code>public sealed interface Shape permits Circle, Rectangle {}
+public record Circle(double r) implements Shape {}
+public record Rectangle(double w, double h) implements Shape {}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/409" target="_blank" rel="noopener">JEP 409: Sealed Classes</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Switch expressions</span><span class="since">14</span></summary><div class="body">
+      <p>No fall-through with <code>-&gt;</code>; <code>yield</code> returns a value from a block. Enum switches are checked for exhaustiveness.</p>
+<pre><code>int days = switch (month) {
+    case FEBRUARY -&gt; 28;
+    case APRIL, JUNE, SEPTEMBER, NOVEMBER -&gt; 30;
+    default -&gt; 31;
+};</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/361" target="_blank" rel="noopener">JEP 361: Switch Expressions</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Text blocks</span><span class="since">15</span></summary><div class="body">
+      <p>Multi-line strings; indentation is stripped relative to the closing delimiter. Great for SQL, JSON, HTML.</p>
+<pre><code>String json = """
+        { "name": "%s", "active": true }
+        """.formatted(name);</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/378" target="_blank" rel="noopener">JEP 378: Text Blocks</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Pattern matching for <code>instanceof</code></span><span class="since">16</span></summary><div class="body">
+<pre><code>if (obj instanceof String s &amp;&amp; s.length() &gt; 3) { s.toUpperCase(); }
+
+@Override public boolean equals(Object o) {
+    return o instanceof Point p &amp;&amp; x == p.x &amp;&amp; y == p.y;
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/394" target="_blank" rel="noopener">JEP 394: Pattern Matching for instanceof</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Helpful NullPointerExceptions</span><span class="since">15</span></summary><div class="body">
+      <p>The message names exactly what was null. Local variable names need <code>-g</code>.</p>
+<pre><code>Cannot invoke "B.c()" because "a.b()" is null</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/358" target="_blank" rel="noopener">JEP 358: Helpful NullPointerExceptions</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">ZGC and Shenandoah production-ready</span><span class="since">15</span></summary><div class="body">
+      <p>Low-pause concurrent collectors. ZGC is non-generational in 17 (generational arrives in 21). Shenandoah is not in every vendor build. G1 remains the right default for most services.</p>
+<pre><code>java -XX:+UseZGC -jar app.jar</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/377" target="_blank" rel="noopener">JEP 377: ZGC: A Scalable Low-Latency Garbage Collector (Production)</a> &middot; <a href="https://openjdk.org/jeps/379" target="_blank" rel="noopener">JEP 379: Shenandoah: A Low-Pause-Time Garbage Collector (Production)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Strong encapsulation of JDK internals</span><span class="since">17</span></summary><div class="body">
+      <p><code>--illegal-access</code> is gone. This is where most 8→17 migrations hurt: upgrade libraries first, use <code>--add-opens</code> as a last resort.</p>
+<pre><code>--add-opens java.base/java.lang=ALL-UNNAMED</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/403" target="_blank" rel="noopener">JEP 403: Strongly Encapsulate JDK Internals</a> &middot; <a href="https://openjdk.org/jeps/396" target="_blank" rel="noopener">JEP 396: Strongly Encapsulate JDK Internals by Default</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Class data sharing (CDS)</span><span class="since">12–13</span></summary><div class="body">
+      <p>JDK class archive is on by default. App-level archives help startup further.</p>
+<pre><code>java -XX:ArchiveClassesAtExit=app.jsa -jar app.jar   # create
+java -XX:SharedArchiveFile=app.jsa -jar app.jar      # use</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/341" target="_blank" rel="noopener">JEP 341: Default CDS Archives</a> &middot; <a href="https://openjdk.org/jeps/350" target="_blank" rel="noopener">JEP 350: Dynamic CDS Archives</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">G1 improvements</span><span class="since">12–14</span></summary><div class="body">
+      <p>Abortable mixed collections and prompt memory return (12), NUMA-aware allocation (14).</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/344" target="_blank" rel="noopener">JEP 344: Abortable Mixed Collections for G1</a> &middot; <a href="https://openjdk.org/jeps/346" target="_blank" rel="noopener">JEP 346: Promptly Return Unused Committed Memory from G1</a> &middot; <a href="https://openjdk.org/jeps/345" target="_blank" rel="noopener">JEP 345: NUMA-Aware Memory Allocation for G1</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">ZGC improvements</span><span class="since">13–16</span></summary><div class="body">
+      <p>Uncommits unused memory and supports 16 TB heaps (13), macOS/Windows (14–15), concurrent stack processing for sub-ms pauses (16).</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/351" target="_blank" rel="noopener">JEP 351: ZGC: Uncommit Unused Memory (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/364" target="_blank" rel="noopener">JEP 364: ZGC on macOS (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/365" target="_blank" rel="noopener">JEP 365: ZGC on Windows (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/376" target="_blank" rel="noopener">JEP 376: ZGC: Concurrent Thread-Stack Processing</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Shenandoah GC</span><span class="since">12–15</span></summary><div class="body">
+      <p>Experimental in 12, production in 15. Only in OpenJDK-based builds, not Oracle JDK.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/189" target="_blank" rel="noopener">JEP 189: Shenandoah: A Low-Pause-Time Garbage Collector (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/379" target="_blank" rel="noopener">JEP 379: Shenandoah: A Low-Pause-Time Garbage Collector (Production)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Elastic metaspace</span><span class="since">16</span></summary><div class="body">
+      <p>Class metadata memory is returned to the OS promptly and fragments less. Helps apps with heavy class loading/unloading (hot redeploys, many proxies).</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/387" target="_blank" rel="noopener">JEP 387: Elastic Metaspace</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">JFR event streaming</span><span class="since">14</span></summary><div class="body">
+      <p>Consume JFR events in-process, live, without dumping a file.</p>
+<pre><code>try (var rs = new RecordingStream()) {
+    rs.enable("jdk.CPULoad").withPeriod(Duration.ofSeconds(1));
+    rs.onEvent("jdk.CPULoad", e -&gt; System.out.println(e.getFloat("jvmUser")));
+    rs.start();
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/349" target="_blank" rel="noopener">JEP 349: JFR Event Streaming</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name"><code>jpackage</code></span><span class="since">16</span></summary><div class="body">
+      <p>Builds native installers (msi, dmg, deb, rpm) with a bundled runtime.</p>
+<pre><code>jpackage --name MyApp --input lib --main-jar app.jar --type deb</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/392" target="_blank" rel="noopener">JEP 392: Packaging Tool</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">macOS/AArch64 port (Apple Silicon)</span><span class="since">17</span></summary><div class="body">
+      <p>Native JDK for Apple Silicon Macs, no Rosetta needed.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/391" target="_blank" rel="noopener">JEP 391: macOS/AArch64 Port</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Windows/AArch64 port</span><span class="since">16</span></summary><div class="body">
+      <p>Native JDK for Windows on ARM.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/388" target="_blank" rel="noopener">JEP 388: Windows/AArch64 Port</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Unix-domain sockets</span><span class="since">16</span></summary><div class="body">
+<pre><code>var addr = UnixDomainSocketAddress.of("/tmp/app.sock");
+try (var ch = SocketChannel.open(StandardProtocolFamily.UNIX)) { ch.connect(addr); }</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/380" target="_blank" rel="noopener">JEP 380: Unix-Domain Socket Channels</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Security Manager deprecated for removal</span><span class="since">17</span></summary><div class="body">
+      <p>Permanently disabled in 24, see Java 25.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/411" target="_blank" rel="noopener">JEP 411: Deprecate the Security Manager for Removal</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Applet API deprecated for removal</span><span class="since">17</span></summary><div class="body">
+      <p>First deprecated in 9; now marked for removal.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/398" target="_blank" rel="noopener">JEP 398: Deprecate the Applet API for Removal</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Biased locking disabled by default</span><span class="since">15</span></summary><div class="body">
+      <p>Deprecated and off by default in 15; removed in 18.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/374" target="_blank" rel="noopener">JEP 374: Deprecate and Disable Biased Locking</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">CMS garbage collector</span><span class="since">14</span></summary><div class="body">
+      <p>Deprecated in 9, removed in 14. G1, ZGC and Shenandoah are the concurrent options.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/363" target="_blank" rel="noopener">JEP 363: Remove the Concurrent Mark Sweep (CMS) Garbage Collector</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Pack200</span><span class="since">14</span></summary><div class="body">
+      <p>Pack200 compression tools and API removed.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/367" target="_blank" rel="noopener">JEP 367: Remove the Pack200 Tools and API</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Nashorn JavaScript engine</span><span class="since">15</span></summary><div class="body">
+      <p>Removed after deprecation in 11.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/372" target="_blank" rel="noopener">JEP 372: Remove the Nashorn JavaScript Engine</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">RMI Activation</span><span class="since">17</span></summary><div class="body">
+      <p>The RMI Activation mechanism is gone; the rest of RMI remains.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/407" target="_blank" rel="noopener">JEP 407: Remove RMI Activation</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Experimental AOT compiler (<code>jaotc</code>) and Graal JIT</span><span class="since">17</span></summary><div class="body">
+      <p>The experimental ahead-of-time compiler and Graal JIT integration were removed.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/410" target="_blank" rel="noopener">JEP 410: Remove the Experimental AOT and JIT Compiler</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Solaris/SPARC ports</span><span class="since">17</span></summary><div class="body">
+      <p>Solaris and SPARC support removed from the JDK.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/381" target="_blank" rel="noopener">JEP 381: Remove the Solaris and SPARC Ports</a></p></div></details></li>
+  </ul>
+</section>
+
+<!-- ================= JAVA 21 ================= -->
+<section class="lts" id="j21">
+  <h2>Java 21 <small>covers 18–21</small></h2>
+  <p class="takeaway">Pattern matching completes data-oriented style; virtual threads change concurrent backends.</p>
+  <ul class="features">
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Pattern matching for <code>switch</code></span><span class="since">21</span></summary><div class="body">
+      <p>Type patterns, guards and <code>case null</code>. Exhaustive over sealed types, so adding a subtype breaks the build where it matters.</p>
+<pre><code>double area(Shape s) {
+    return switch (s) {
+        case Circle c    -&gt; Math.PI * c.r() * c.r();
+        case Rectangle r -&gt; r.w() * r.h();
+    };
+}
+case Integer i when i &gt; 100 -&gt; "big";</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/441" target="_blank" rel="noopener">JEP 441: Pattern Matching for switch</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Record patterns</span><span class="since">21</span></summary><div class="body">
+      <p>Deconstruct records, nested, in <code>instanceof</code> and <code>switch</code>.</p>
+<pre><code>if (obj instanceof Point(int x, int y)) { use(x + y); }
+case Line(Point(var x1, var y1), Point(var x2, var y2)) -&gt; Math.hypot(x2-x1, y2-y1);</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/440" target="_blank" rel="noopener">JEP 440: Record Patterns</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Virtual threads</span><span class="since">21</span></summary><div class="body">
+      <p>Cheap JVM-scheduled threads: thread-per-request code with async-level scalability. Helps I/O-bound work only. Never pool them; limit concurrency with a <code>Semaphore</code>. Blocking in <code>synchronized</code> pins the carrier in 21 (fixed in 24).</p>
+<pre><code>try (var ex = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (int i = 0; i &lt; 10_000; i++) ex.submit(() -&gt; handle(i));
+}
+Thread.ofVirtual().name("worker-", 0).start(() -&gt; doWork());</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/444" target="_blank" rel="noopener">JEP 444: Virtual Threads</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Generational ZGC</span><span class="since">21</span></summary><div class="body">
+      <p>Far lower CPU and memory overhead than non-generational ZGC. Default ZGC mode from 23; the old mode is removed in 24.</p>
+<pre><code>java -XX:+UseZGC -XX:+ZGenerational -jar app.jar   # 21</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/439" target="_blank" rel="noopener">JEP 439: Generational ZGC</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">UTF-8 by default</span><span class="since">18</span></summary><div class="body">
+      <p>Ends "works on Linux, garbled on Windows". Explicit charsets are still better style. Legacy behavior: <code>-Dfile.encoding=COMPAT</code>.</p>
+<pre><code>new FileReader(f, StandardCharsets.UTF_8);</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/400" target="_blank" rel="noopener">JEP 400: UTF-8 by Default</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Simple Web Server (<code>jwebserver</code>)</span><span class="since">18</span></summary><div class="body">
+      <p>Minimal static file server for prototyping and testing; not for production.</p>
+<pre><code>jwebserver -p 8000 -d /tmp/site</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/408" target="_blank" rel="noopener">JEP 408: Simple Web Server</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Dynamic agent loading warning</span><span class="since">21</span></summary><div class="body">
+      <p>Attaching agents at runtime (Mockito, ByteBuddy and similar) now prints a warning; a future release will disallow it by default. Prefer <code>-javaagent</code>, or opt in explicitly:</p>
+<pre><code>-XX:+EnableDynamicAgentLoading</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/451" target="_blank" rel="noopener">JEP 451: Prepare to Disallow the Dynamic Loading of Agents</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Sequenced collections</span><span class="since">21</span></summary><div class="body">
+      <p>Uniform first/last/reversed API for ordered collections. <code>HashSet</code>/<code>HashMap</code> are excluded. <code>getFirst()</code> on empty throws.</p>
+<pre><code>list.getFirst();  list.getLast();  list.reversed();   // view
+map.firstEntry(); map.putFirst("w", 0);</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/431" target="_blank" rel="noopener">JEP 431: Sequenced Collections</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag doc">Javadoc</span><span class="name">Javadoc <code>{@snippet}</code></span><span class="since">18</span></summary><div class="body">
+      <p>Compiler-checkable code samples in documentation, instead of <code>&lt;pre&gt;</code> blocks.</p>
+<pre><code>/** {@snippet :
+ *   var p = new Point(1, 2);   // highlighted and verified
+ * } */</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/413" target="_blank" rel="noopener">JEP 413: Code Snippets in Java API Documentation</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Structured concurrency</span><span class="since">21</span></summary><div class="body">
+      <p>Preview in 21 (needs <code>--enable-preview</code>). The API changed since; see Java 25.</p>
+<pre><code>try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+    var user  = scope.fork(() -&gt; findUser(id));
+    var order = scope.fork(() -&gt; fetchOrder(id));
+    scope.join().throwIfFailed();
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/453" target="_blank" rel="noopener">JEP 453: Structured Concurrency (Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Foreign Function &amp; Memory API</span><span class="since">21</span></summary><div class="body">
+      <p>Third preview in 21; became final in 22 (see Java 25).</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/442" target="_blank" rel="noopener">JEP 442: Foreign Function &amp; Memory API (Third Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Scoped Values</span><span class="since">21</span></summary><div class="body">
+      <p>Debuted as a preview in 21; final in 25 (see Java 25).</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/446" target="_blank" rel="noopener">JEP 446: Scoped Values (Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Finalization deprecated for removal</span><span class="since">18</span></summary><div class="body">
+      <p>Replace <code>finalize()</code> with try-with-resources or <code>Cleaner</code>. You can test without finalization:</p>
+<pre><code>--finalization=disabled</code></pre>
+      
+      <p class="jep"><a href="https://openjdk.org/jeps/421" target="_blank" rel="noopener">JEP 421: Deprecate Finalization for Removal</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Biased locking</span><span class="since">18</span></summary><div class="body">
+      <p>Removed; disabled by default since 15.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/374" target="_blank" rel="noopener">JEP 374: Deprecate and Disable Biased Locking</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name"><code>Thread.stop()</code></span><span class="since">20</span></summary><div class="body">
+      <p>Now throws <code>UnsupportedOperationException</code>.</p></div></details></li>
+  </ul>
+</section>
+
+<!-- ================= JAVA 25 ================= -->
+<section class="lts" id="j25">
+  <h2>Java 25 <small>covers 22–25</small></h2>
+  <p class="takeaway">Polish plus real runtime wins (object headers, AOT cache) and the FFM API.</p>
+  <ul class="features">
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Compact source files, instance <code>main</code></span><span class="since">25</span></summary><div class="body">
+      <p>No class, no <code>static</code>, no <code>String[] args</code>. New <code>IO</code> class for console I/O. Good for scripts, not for real applications.</p>
+<pre><code>void main() {
+    var name = IO.readln("Name: ");
+    IO.println("Hi " + name);
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/512" target="_blank" rel="noopener">JEP 512: Compact Source Files and Instance Main Methods</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Module import declarations</span><span class="since">25</span></summary><div class="body">
+      <p>Import everything a module exports. Ambiguities (<code>java.util.Date</code> vs <code>java.sql.Date</code>) need a single-type import.</p>
+<pre><code>import module java.base;
+import module java.sql;</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/511" target="_blank" rel="noopener">JEP 511: Module Import Declarations</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Flexible constructor bodies</span><span class="since">25</span></summary><div class="body">
+      <p>Validate and compute before <code>super(...)</code>, as long as you don't touch <code>this</code>.</p>
+<pre><code>Square(double side) {
+    if (side &lt;= 0) throw new IllegalArgumentException();
+    super(side * side);
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/513" target="_blank" rel="noopener">JEP 513: Flexible Constructor Bodies</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lang">Lang</span><span class="name">Unnamed variables and patterns <code>_</code></span><span class="since">22</span></summary><div class="body">
+<pre><code>catch (NumberFormatException _) { return false; }
+case Rectangle(Point(var x, _), _) -&gt; use(x);</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/456" target="_blank" rel="noopener">JEP 456: Unnamed Variables &amp; Patterns</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Multi-file source launch</span><span class="since">22</span></summary><div class="body">
+      <p>Sources in the same tree are compiled in memory. Libraries still go on <code>-cp</code>.</p>
+<pre><code>java Main.java     # Helper.java next to it is picked up</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/458" target="_blank" rel="noopener">JEP 458: Launch Multi-File Source-Code Programs</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Compact object headers</span><span class="since">25</span></summary><div class="body">
+      <p>Header shrinks from 16 to 8 bytes: smaller heap, often less GC work. Product feature but <strong>off by default</strong>; test with your workload.</p>
+<pre><code>java -XX:+UseCompactObjectHeaders -jar app.jar</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/519" target="_blank" rel="noopener">JEP 519: Compact Object Headers</a> &middot; <a href="https://openjdk.org/jeps/450" target="_blank" rel="noopener">JEP 450: Compact Object Headers (Experimental)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">AOT cache (Project Leyden)</span><span class="since">24–25</span></summary><div class="body">
+      <p>Pre-parsed, pre-linked classes plus method profiles: faster startup and warmup, builds on CDS. Must match the same JVM and class path; create it at build time.</p>
+<pre><code>java -XX:AOTCacheOutput=app.aot -jar app.jar   # training run
+java -XX:AOTCache=app.aot -jar app.jar         # production</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/483" target="_blank" rel="noopener">JEP 483: Ahead-of-Time Class Loading &amp; Linking</a> &middot; <a href="https://openjdk.org/jeps/514" target="_blank" rel="noopener">JEP 514: Ahead-of-Time Command-Line Ergonomics</a> &middot; <a href="https://openjdk.org/jeps/515" target="_blank" rel="noopener">JEP 515: Ahead-of-Time Method Profiling</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name"><code>synchronized</code> no longer pins virtual threads</span><span class="since">24</span></summary><div class="body">
+      <p>Removes the biggest virtual-thread caveat of 21; no need to rewrite to <code>ReentrantLock</code>. Remaining pinning: native frames, some class-init blocking.</p>
+<pre><code>synchronized (lock) { blockingCall(); }   // 24+: virtual thread unmounts</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/491" target="_blank" rel="noopener">JEP 491: Synchronize Virtual Threads without Pinning</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Generational Shenandoah</span><span class="since">25</span></summary><div class="body">
+      <p>Same idea as generational ZGC. Not in Oracle JDK; Temurin and Red Hat builds include it.</p>
+<pre><code>java -XX:+UseShenandoahGC -XX:ShenandoahGCMode=generational -jar app.jar</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/521" target="_blank" rel="noopener">JEP 521: Generational Shenandoah</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Which GC in 25?</span><span class="since">22–25</span></summary><div class="body">
+      <p><strong>G1</strong> (default): balanced, fine for most services. <strong>Parallel:</strong> batch throughput. <strong>Serial:</strong> tiny heaps. <strong>ZGC:</strong> now generational only (non-generational removed in 24): low tail latency on large heaps. <strong>Shenandoah:</strong> optional generational mode, not in Oracle JDK. <strong>Epsilon:</strong> benchmarks only. Rule of thumb: stay on G1 until tail latency or heap size proves a problem.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/474" target="_blank" rel="noopener">JEP 474: ZGC: Generational Mode by Default</a> &middot; <a href="https://openjdk.org/jeps/490" target="_blank" rel="noopener">JEP 490: ZGC: Remove the Non-Generational Mode</a> &middot; <a href="https://openjdk.org/jeps/521" target="_blank" rel="noopener">JEP 521: Generational Shenandoah</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">JFR CPU-time profiling</span><span class="since">25</span></summary><div class="body">
+      <p>Experimental, Linux only: samples by CPU time instead of wall-clock time.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/509" target="_blank" rel="noopener">JEP 509: JFR CPU-Time Profiling (Experimental)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">JFR cooperative sampling</span><span class="since">25</span></summary><div class="body">
+      <p>Stack sampling at safepoints, which makes sampling safer and more stable.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/518" target="_blank" rel="noopener">JEP 518: JFR Cooperative Sampling</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">JFR method timing and tracing</span><span class="since">25</span></summary><div class="body">
+      <p>New events measure execution time and trace calls of chosen methods.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/520" target="_blank" rel="noopener">JEP 520: JFR Method Timing &amp; Tracing</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Foreign Function &amp; Memory API</span><span class="since">22</span></summary><div class="body">
+      <p>Replaces JNI and most Unsafe off-heap code. Run with <code>--enable-native-access=ALL-UNNAMED</code>; <code>jextract</code> generates bindings.</p>
+<pre><code>Linker linker = Linker.nativeLinker();
+MethodHandle strlen = linker.downcallHandle(
+    linker.defaultLookup().find("strlen").orElseThrow(),
+    FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+try (Arena arena = Arena.ofConfined()) {
+    long len = (long) strlen.invokeExact(arena.allocateFrom("Hello"));
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/454" target="_blank" rel="noopener">JEP 454: Foreign Function &amp; Memory API</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Stream Gatherers</span><span class="since">24</span></summary><div class="body">
+      <p>Custom intermediate stream operations (collectors are custom terminal ones).</p>
+<pre><code>stream.gather(Gatherers.windowFixed(3)).toList();   // [[1,2,3],[4,5,6],[7]]
+stream.gather(Gatherers.windowSliding(2)).toList();
+urls.stream().gather(Gatherers.mapConcurrent(10, this::fetch)).toList();</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/485" target="_blank" rel="noopener">JEP 485: Stream Gatherers</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Class-File API</span><span class="since">24</span></summary><div class="body">
+      <p>Standard bytecode read/write/transform (<code>java.lang.classfile</code>), tracks every JDK release unlike ASM. Mostly relevant to framework and tooling authors.</p>
+<pre><code>ClassModel cm = ClassFile.of().parse(Path.of("Foo.class"));
+cm.methods().forEach(m -&gt; System.out.println(m.methodName().stringValue()));</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/484" target="_blank" rel="noopener">JEP 484: Class-File API</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Scoped Values</span><span class="since">25</span></summary><div class="body">
+      <p>Immutable, bounded-lifetime alternative to <code>ThreadLocal</code>; cheap with virtual threads. Use for request context, principals, trace IDs.</p>
+<pre><code>static final ScopedValue&lt;User&gt; CURRENT_USER = ScopedValue.newInstance();
+ScopedValue.where(CURRENT_USER, authenticate(req)).run(() -&gt; service.process());
+CURRENT_USER.get();   // anywhere deeper in the call tree</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/506" target="_blank" rel="noopener">JEP 506: Scoped Values</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Vector API (still incubating)</span><span class="since">16–25</span></summary><div class="body">
+      <p>Portable SIMD, now in its tenth incubation round, waiting on Project Valhalla. Usable but not stable.</p>
+<pre><code>--add-modules jdk.incubator.vector</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/508" target="_blank" rel="noopener">JEP 508: Vector API (Tenth Incubator)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Post-quantum crypto: ML-KEM and ML-DSA</span><span class="since">24</span></summary><div class="body">
+      <p>ML-KEM (key encapsulation) and ML-DSA (signatures) arrived in 24.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/496" target="_blank" rel="noopener">JEP 496: Quantum-Resistant Module-Lattice-Based Key Encapsulation Mechanism</a> &middot; <a href="https://openjdk.org/jeps/497" target="_blank" rel="noopener">JEP 497: Quantum-Resistant Module-Lattice-Based Digital Signature Algorithm</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Key Derivation Function API</span><span class="since">25</span></summary><div class="body">
+      <p>Standard API for key derivation functions such as HKDF; final in 25.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/510" target="_blank" rel="noopener">JEP 510: Key Derivation Function API</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag doc">Javadoc</span><span class="name">Markdown in Javadoc</span><span class="since">23</span></summary><div class="body">
+<pre><code>/// Returns the **sum** of two numbers.
+///
+/// - `a` first value
+/// - `b` second value
+int add(int a, int b) { return a + b; }</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/467" target="_blank" rel="noopener">JEP 467: Markdown Documentation Comments</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Structured concurrency (new API shape)</span><span class="since">25</span></summary><div class="body">
+      <p>Need <code>--enable-preview</code>; classes compiled this way only run on the exact same Java version. Don't ship against previews.</p>
+<pre><code>try (var scope = StructuredTaskScope.open()) {
+    var user  = scope.fork(() -&gt; findUser(id));
+    var order = scope.fork(() -&gt; fetchOrder(id));
+    scope.join();
+}</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/505" target="_blank" rel="noopener">JEP 505: Structured Concurrency (Fifth Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Stable Values</span><span class="since">25</span></summary><div class="body">
+      <p>Lazily initialized, then immutable; the JVM can optimize them like constants.</p>
+<pre><code>Supplier&lt;Logger&gt; logger = StableValue.supplier(() -&gt; Logger.create("app"));</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/502" target="_blank" rel="noopener">JEP 502: Stable Values (Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Primitive patterns in <code>switch</code></span><span class="since">25</span></summary><div class="body">
+      <p>Patterns and <code>instanceof</code> work with primitive types.</p>
+<pre><code>switch (x) { case int i when i &lt; 0 -&gt; "negative"; case int i -&gt; "positive"; }</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/507" target="_blank" rel="noopener">JEP 507: Primitive Types in Patterns, instanceof, and switch (Third Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name"><code>sun.misc.Unsafe</code> memory access: warnings</span><span class="since">23–24</span></summary><div class="body">
+      <p>Memory-access methods are deprecated for removal (23) and warn on first use (24). Libraries like Netty and Kryo are migrating to <code>VarHandle</code> and FFM. Check your dependencies when upgrading.</p>
+<pre><code>--sun-misc-unsafe-memory-access=allow|warn|debug|deny</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/471" target="_blank" rel="noopener">JEP 471: Deprecate the Memory-Access Methods in sun.misc.Unsafe for Removal</a> &middot; <a href="https://openjdk.org/jeps/498" target="_blank" rel="noopener">JEP 498: Warn upon Use of Memory-Access Methods in sun.misc.Unsafe</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">JNI and native access warnings</span><span class="since">24</span></summary><div class="body">
+      <p>Using JNI or FFM now warns unless native access is enabled for the module; it will become stricter later.</p>
+<pre><code>--enable-native-access=ALL-UNNAMED</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/472" target="_blank" rel="noopener">JEP 472: Prepare to Restrict the Use of JNI</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Security Manager permanently disabled</span><span class="since">24</span></summary><div class="body">
+      <p><code>System.setSecurityManager</code> now always throws. No replacement inside the JVM; use container or OS-level sandboxing.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/486" target="_blank" rel="noopener">JEP 486: Permanently Disable the Security Manager</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">String Templates dropped</span><span class="since">23</span></summary><div class="body">
+      <p>Previewed in 21 and 22, removed in 23 pending a redesign. Don't build on them.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/430" target="_blank" rel="noopener">JEP 430: String Templates (Preview)</a> &middot; <a href="https://openjdk.org/jeps/459" target="_blank" rel="noopener">JEP 459: String Templates (Second Preview)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Windows 32-bit x86 port</span><span class="since">24</span></summary><div class="body">
+      <p>Deprecated for removal in 21, removed in 24.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/479" target="_blank" rel="noopener">JEP 479: Remove the Windows 32-bit x86 Port</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Linux 32-bit x86 port</span><span class="since">25</span></summary><div class="body">
+      <p>Removed in 25.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/503" target="_blank" rel="noopener">JEP 503: Remove the 32-bit x86 Port</a></p></div></details></li>
+  </ul>
+</section>
+
+<footer>Next LTS: Java 29 (September 2027).</footer>
+</main>
+
+<script>
+(function () {
+  var all = function () { return document.querySelectorAll("details.feature"); };
+  document.getElementById("expand").onclick = function () { all().forEach(function (d) { d.open = true; }); };
+  document.getElementById("collapse").onclick = function () { all().forEach(function (d) { d.open = false; }); };
+
+  // Type filter: no chip selected = show everything; several chips = show any of them
+  var active = {};
+  var chips = document.querySelectorAll(".chip[data-type]");
+  var allChip = document.getElementById("chip-all");
+  function applyFilter() {
+    var any = Object.keys(active).length > 0;
+    var minorToggle = document.getElementById("minor-toggle");
+    var minorOn = minorToggle.checked;
+    
+    document.querySelectorAll(".lts").forEach(function (sec) {
+      var shown = 0;
+      sec.querySelectorAll(".features > li").forEach(function (li) {
+        var type = li.querySelector(".tag").className.split(" ")[1];
+        var ok = (!any || active[type]) && (minorOn || !li.classList.contains("minor"));
+        li.hidden = !ok;
+        if (ok) shown++;
+      });
+      sec.hidden = shown === 0;
+    });
+    allChip.setAttribute("aria-pressed", any ? "false" : "true");
+    chips.forEach(function (c) { c.setAttribute("aria-pressed", active[c.dataset.type] ? "true" : "false"); });
+  }
+  chips.forEach(function (c) {
+    c.onclick = function () {
+      var t = c.dataset.type;
+      if (active[t]) delete active[t]; else active[t] = true;
+      applyFilter();
+    };
+  });
+  allChip.onclick = function () { active = {}; applyFilter(); };
+  document.getElementById("minor-toggle").onchange = applyFilter;
+  applyFilter();
+})();
+</script>
+</body>
+</html>
