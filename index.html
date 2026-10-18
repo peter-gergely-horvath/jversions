@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Java after 8: LTS recap</title>
+<script>/* apply a saved theme before first paint */try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <style>
 /* ===== 1. Design tokens: edit these first ===== */
 :root {
   --bg: #f6f7f9; --surface: #ffffff; --text: #1d2330; --muted: #5f6b7e;
   --border: #dde1e8; --accent: #c2410c; --code-bg: #f0f2f5;
-  --tag-lang: #1d6fd1; --tag-jvm: #0f8a5f; --tag-lib: #8a4fd1; --tag-prev: #b7791f; --tag-dep: #d9480f; --tag-rem: #b42318; --tag-doc: #0e7490;
+  --tag-lang: #1d6fd1; --tag-jvm: #0f8a5f; --tag-lib: #8a4fd1; --tag-prev: #c28f00; --warn: #c28f00; --tag-dep: #d9480f; --tag-rem: #b42318; --tag-doc: #0e7490;
   --radius: 10px; --max-width: 820px;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -19,14 +20,14 @@
     --tag-dep: #ff9a62; --tag-rem: #f38b82; --tag-doc: #4cc9e0;
     --bg: #12151c; --surface: #1b202b; --text: #e6e9ef; --muted: #9aa5b8;
     --border: #2d3544; --accent: #fb923c; --code-bg: #12161e;
-    --tag-lang: #5aa2f0; --tag-jvm: #3cc690; --tag-lib: #b98af0; --tag-prev: #e3b04b;
+    --tag-lang: #5aa2f0; --tag-jvm: #3cc690; --tag-lib: #b98af0; --tag-prev: #f2cc5a; --warn: #f2cc5a;
   }
 }
 :root[data-theme="dark"] {
   --tag-dep: #ff9a62; --tag-rem: #f38b82; --tag-doc: #4cc9e0;
   --bg: #12151c; --surface: #1b202b; --text: #e6e9ef; --muted: #9aa5b8;
   --border: #2d3544; --accent: #fb923c; --code-bg: #12161e;
-  --tag-lang: #5aa2f0; --tag-jvm: #3cc690; --tag-lib: #b98af0; --tag-prev: #e3b04b;
+  --tag-lang: #5aa2f0; --tag-jvm: #3cc690; --tag-lib: #b98af0; --tag-prev: #f2cc5a; --warn: #f2cc5a;
 }
 
 /* ===== 2. Layout ===== */
@@ -37,6 +38,13 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 var
 main { max-width: var(--max-width); margin: 0 auto; padding: 1rem 1rem 4rem; }
 header h1 { margin: 1.5rem 0 .25rem; font-size: 1.8rem; }
 header p { margin: 0; color: var(--muted); }
+
+/* Theme button: upper right corner of the page header */
+.page-head { position: relative; }
+.page-head h1 { padding-right: 7.5rem; }
+#theme-toggle { position: absolute; top: .75rem; right: 0; font: inherit; font-size: .9rem; padding: .3rem .8rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+#theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ===== 3. Toolbar ===== */
 .toolbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
@@ -100,18 +108,24 @@ pre code { background: none; padding: 0; font-size: inherit; }
 .feature .body .jep { font-size: .85rem; color: var(--muted); margin: .6rem 0 0; }
 .feature .body .jep a { color: var(--accent); }
 
+/* Unreleased marker */
+.badge-unreleased { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: .1rem .55rem; border-radius: 999px; background: var(--warn); color: #111; align-self: center; }
+.banner { margin: .25rem 0 1rem; padding: .8rem 1rem; background: var(--surface); border: 2px solid var(--warn); border-left-width: 8px; border-radius: var(--radius); font-size: .95rem; }
+.banner .label { display: block; margin-bottom: .25rem; color: var(--warn); text-transform: uppercase; letter-spacing: .05em; }
+
 footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; }
 </style>
 </head>
 <body>
 <main>
-<header>
+<header class="page-head">
+  <button id="theme-toggle" title="Switch between system, light and dark theme">Theme: Auto</button>
   <h1>Java after 8: LTS recap</h1>
   <p>Main language features and important JVM changes. Click any item to expand it.</p>
 </header>
 
 <nav class="toolbar">
-  <a href="#j11">Java 11</a><a href="#j17">Java 17</a><a href="#j21">Java 21</a><a href="#j25">Java 25</a>
+  <a href="#j11">Java 11</a><a href="#j17">Java 17</a><a href="#j21">Java 21</a><a href="#j25">Java 25</a><a href="#j29">Java 29 (unreleased)</a>
   <span class="spacer"></span>
   <button id="expand">Expand all</button><button id="collapse">Collapse all</button>
   <div class="filters" role="group" aria-label="Filter by type">
@@ -137,7 +151,7 @@ footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; }
       <p>Local variables only. Still static typing; the type is inferred. <code>var list = new ArrayList&lt;&gt;()</code> infers <code>ArrayList&lt;Object&gt;</code>.</p>
 <pre><code>var users = new ArrayList&lt;User&gt;();
 BiFunction&lt;Integer,Integer,Integer&gt; add = (var a, var b) -&gt; a + b; // 11</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/286" target="_blank" rel="noopener">JEP 286: Local-Variable Type Inference</a> &middot; <a href="https://openjdk.org/jeps/323" target="_blank" rel="noopener">JEP 323: Local-Variable Syntax for Lambda Parameters</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/286" target="_blank" rel="noopener">JEP 286: Local-Variable Type Inference</a><br><a href="https://openjdk.org/jeps/323" target="_blank" rel="noopener">JEP 323: Local-Variable Syntax for Lambda Parameters</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Module system (JPMS)</span><span class="since">9</span></summary><div class="body">
       <p>Most apps stay on the classpath. The real impact: JDK internals are encapsulated. In 11 reflective access only warns; 17 makes it an error.</p>
@@ -146,13 +160,13 @@ BiFunction&lt;Integer,Integer,Integer&gt; add = (var a, var b) -&gt; a + b; // 1
     exports com.example.app.api;
     opens com.example.app.model to com.fasterxml.jackson.databind;
 }</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/261" target="_blank" rel="noopener">JEP 261: Module System</a> &middot; <a href="https://openjdk.org/jeps/260" target="_blank" rel="noopener">JEP 260: Encapsulate Most Internal APIs</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/261" target="_blank" rel="noopener">JEP 261: Module System</a><br><a href="https://openjdk.org/jeps/260" target="_blank" rel="noopener">JEP 260: Encapsulate Most Internal APIs</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">G1 default, ZGC and Epsilon (experimental)</span><span class="since">9–11</span></summary><div class="body">
       <p>G1 is the default GC. ZGC targets very low pauses on large heaps; Epsilon never reclaims memory (benchmarks, short jobs).</p>
 <pre><code>java -XX:+UseParallelGC -jar app.jar     # go back to Parallel
 java -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -jar app.jar</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/248" target="_blank" rel="noopener">JEP 248: Make G1 the Default Garbage Collector</a> &middot; <a href="https://openjdk.org/jeps/333" target="_blank" rel="noopener">JEP 333: ZGC: A Scalable Low-Latency Garbage Collector (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/318" target="_blank" rel="noopener">JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/248" target="_blank" rel="noopener">JEP 248: Make G1 the Default Garbage Collector</a><br><a href="https://openjdk.org/jeps/333" target="_blank" rel="noopener">JEP 333: ZGC: A Scalable Low-Latency Garbage Collector (Experimental)</a><br><a href="https://openjdk.org/jeps/318" target="_blank" rel="noopener">JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Container awareness</span><span class="since">10</span></summary><div class="body">
       <p>The JVM respects cgroup CPU and memory limits (backported to 8u191). Prefer percentages over hardcoded <code>-Xmx</code>.</p>
@@ -175,13 +189,13 @@ jcmd &lt;pid&gt; JFR.dump name=adhoc filename=rec.jfr</code></pre>
       <p class="jep"><a href="https://openjdk.org/jeps/332" target="_blank" rel="noopener">JEP 332: Transport Layer Security (TLS) 1.3</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Collector overview: Serial, Parallel, G1, ZGC, Epsilon</span><span class="since">9–11</span></summary><div class="body">
-      <p><strong>Serial:</strong> tiny heaps, single CPU. <strong>Parallel:</strong> max throughput for batch jobs. <strong>G1:</strong> balanced default. <strong>ZGC:</strong> low latency, experimental in 11. <strong>Epsilon:</strong> no-op. The JVM silently falls back to Serial when it sees under 2 CPUs or about 1.8 GB RAM, which often surprises people in small containers.</p>
+      <p><strong>Serial:</strong> tiny heaps, single CPU. <strong>Parallel:</strong> max throughput for batch jobs. <strong>G1:</strong> balanced default. <strong>ZGC:</strong> low latency, experimental in 11. <strong>Epsilon:</strong> no-op. The JVM silently falls back to Serial when it sees under 2 CPUs or about 1.8 GB RAM, which often surprises people in small containers. This ends in Java 27 (see Java 29).</p>
 <pre><code>-XX:+UseSerialGC   -XX:+UseParallelGC   -XX:+UseG1GC</code></pre></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Unified logging (<code>-Xlog</code>)</span><span class="since">9</span></summary><div class="body">
       <p>One logging framework for all JVM subsystems; replaces the old <code>-XX:+PrintGC*</code> flags.</p>
 <pre><code>java -Xlog:gc*:file=gc.log:time,uptime,level,tags -jar app.jar</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/158" target="_blank" rel="noopener">JEP 158: Unified JVM Logging</a> &middot; <a href="https://openjdk.org/jeps/271" target="_blank" rel="noopener">JEP 271: Unified GC Logging</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/158" target="_blank" rel="noopener">JEP 158: Unified JVM Logging</a><br><a href="https://openjdk.org/jeps/271" target="_blank" rel="noopener">JEP 271: Unified GC Logging</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Compact strings</span><span class="since">9</span></summary><div class="body">
       <p>Latin-1 strings are stored as one byte per char instead of two. Automatic, often a noticeable heap saving on string-heavy apps.</p>
@@ -209,14 +223,23 @@ client.sendAsync(req, BodyHandlers.ofString()).thenApply(HttpResponse::body);</c
       <p class="jep"><a href="https://openjdk.org/jeps/321" target="_blank" rel="noopener">JEP 321: HTTP Client API</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Immutable collection factories</span><span class="since">9–11</span></summary><div class="body">
-<pre><code>List.of(1, 2);  Set.of("a");  Map.of("k", 1);        // immutable</code></pre>
+<pre><code>List.of(1, 2);       // immutable list
+Set.of("a");         // immutable set
+Map.of("k", 1);      // immutable map</code></pre>
       <p class="jep"><a href="https://openjdk.org/jeps/269" target="_blank" rel="noopener">JEP 269: Convenience Factory Methods for Collections</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Optional additions</span><span class="since">9–11</span></summary><div class="body">
-<pre><code>opt.ifPresentOrElse(use, orElse);  opt.or(() -&gt; alt);  opt.isEmpty();</code></pre></div></details></li>
+      <p><code>Optional</code> got better handling of the empty case in 9 and 11.</p>
+<pre><code>opt.ifPresentOrElse(use, orElse);   // 9: run an action, or a fallback
+opt.or(() -&gt; alt);                  // 9: fall back to another Optional
+opt.isEmpty();                      // 11: the opposite of isPresent()</code></pre>
+      <p class="jep">No JEP for this one, see the Javadoc: <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/Optional.html" target="_blank" rel="noopener">Optional (Java 11)</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Stream <code>takeWhile</code> / <code>dropWhile</code></span><span class="since">9</span></summary><div class="body">
-<pre><code>stream.takeWhile(x -&gt; x &lt; 10);  stream.dropWhile(...);</code></pre></div></details></li>
+      <p>Short-circuiting operations that work on the prefix of an ordered stream.</p>
+<pre><code>stream.takeWhile(x -&gt; x &lt; 10);   // keep elements until the predicate first fails
+stream.dropWhile(x -&gt; x &lt; 10);   // skip elements until the predicate first fails</code></pre>
+      <p class="jep">No JEP for this one, see the Javadoc: <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/stream/Stream.html" target="_blank" rel="noopener">Stream (Java 11)</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Process API (<code>ProcessHandle</code>)</span><span class="since">9</span></summary><div class="body">
 <pre><code>ProcessHandle.current().pid();                      // process API</code></pre>
@@ -308,30 +331,30 @@ public record Rectangle(double w, double h) implements Shape {}</code></pre>
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">ZGC and Shenandoah production-ready</span><span class="since">15</span></summary><div class="body">
       <p>Low-pause concurrent collectors. ZGC is non-generational in 17 (generational arrives in 21). Shenandoah is not in every vendor build. G1 remains the right default for most services.</p>
 <pre><code>java -XX:+UseZGC -jar app.jar</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/377" target="_blank" rel="noopener">JEP 377: ZGC: A Scalable Low-Latency Garbage Collector (Production)</a> &middot; <a href="https://openjdk.org/jeps/379" target="_blank" rel="noopener">JEP 379: Shenandoah: A Low-Pause-Time Garbage Collector (Production)</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/377" target="_blank" rel="noopener">JEP 377: ZGC: A Scalable Low-Latency Garbage Collector (Production)</a><br><a href="https://openjdk.org/jeps/379" target="_blank" rel="noopener">JEP 379: Shenandoah: A Low-Pause-Time Garbage Collector (Production)</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Strong encapsulation of JDK internals</span><span class="since">17</span></summary><div class="body">
       <p><code>--illegal-access</code> is gone. This is where most 8→17 migrations hurt: upgrade libraries first, use <code>--add-opens</code> as a last resort.</p>
 <pre><code>--add-opens java.base/java.lang=ALL-UNNAMED</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/403" target="_blank" rel="noopener">JEP 403: Strongly Encapsulate JDK Internals</a> &middot; <a href="https://openjdk.org/jeps/396" target="_blank" rel="noopener">JEP 396: Strongly Encapsulate JDK Internals by Default</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/403" target="_blank" rel="noopener">JEP 403: Strongly Encapsulate JDK Internals</a><br><a href="https://openjdk.org/jeps/396" target="_blank" rel="noopener">JEP 396: Strongly Encapsulate JDK Internals by Default</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Class data sharing (CDS)</span><span class="since">12–13</span></summary><div class="body">
       <p>JDK class archive is on by default. App-level archives help startup further.</p>
 <pre><code>java -XX:ArchiveClassesAtExit=app.jsa -jar app.jar   # create
 java -XX:SharedArchiveFile=app.jsa -jar app.jar      # use</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/341" target="_blank" rel="noopener">JEP 341: Default CDS Archives</a> &middot; <a href="https://openjdk.org/jeps/350" target="_blank" rel="noopener">JEP 350: Dynamic CDS Archives</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/341" target="_blank" rel="noopener">JEP 341: Default CDS Archives</a><br><a href="https://openjdk.org/jeps/350" target="_blank" rel="noopener">JEP 350: Dynamic CDS Archives</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">G1 improvements</span><span class="since">12–14</span></summary><div class="body">
       <p>Abortable mixed collections and prompt memory return (12), NUMA-aware allocation (14).</p>
-      <p class="jep"><a href="https://openjdk.org/jeps/344" target="_blank" rel="noopener">JEP 344: Abortable Mixed Collections for G1</a> &middot; <a href="https://openjdk.org/jeps/346" target="_blank" rel="noopener">JEP 346: Promptly Return Unused Committed Memory from G1</a> &middot; <a href="https://openjdk.org/jeps/345" target="_blank" rel="noopener">JEP 345: NUMA-Aware Memory Allocation for G1</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/344" target="_blank" rel="noopener">JEP 344: Abortable Mixed Collections for G1</a><br><a href="https://openjdk.org/jeps/346" target="_blank" rel="noopener">JEP 346: Promptly Return Unused Committed Memory from G1</a><br><a href="https://openjdk.org/jeps/345" target="_blank" rel="noopener">JEP 345: NUMA-Aware Memory Allocation for G1</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">ZGC improvements</span><span class="since">13–16</span></summary><div class="body">
       <p>Uncommits unused memory and supports 16 TB heaps (13), macOS/Windows (14–15), concurrent stack processing for sub-ms pauses (16).</p>
-      <p class="jep"><a href="https://openjdk.org/jeps/351" target="_blank" rel="noopener">JEP 351: ZGC: Uncommit Unused Memory (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/364" target="_blank" rel="noopener">JEP 364: ZGC on macOS (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/365" target="_blank" rel="noopener">JEP 365: ZGC on Windows (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/376" target="_blank" rel="noopener">JEP 376: ZGC: Concurrent Thread-Stack Processing</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/351" target="_blank" rel="noopener">JEP 351: ZGC: Uncommit Unused Memory (Experimental)</a><br><a href="https://openjdk.org/jeps/364" target="_blank" rel="noopener">JEP 364: ZGC on macOS (Experimental)</a><br><a href="https://openjdk.org/jeps/365" target="_blank" rel="noopener">JEP 365: ZGC on Windows (Experimental)</a><br><a href="https://openjdk.org/jeps/376" target="_blank" rel="noopener">JEP 376: ZGC: Concurrent Thread-Stack Processing</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Shenandoah GC</span><span class="since">12–15</span></summary><div class="body">
       <p>Experimental in 12, production in 15. Only in OpenJDK-based builds, not Oracle JDK.</p>
-      <p class="jep"><a href="https://openjdk.org/jeps/189" target="_blank" rel="noopener">JEP 189: Shenandoah: A Low-Pause-Time Garbage Collector (Experimental)</a> &middot; <a href="https://openjdk.org/jeps/379" target="_blank" rel="noopener">JEP 379: Shenandoah: A Low-Pause-Time Garbage Collector (Production)</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/189" target="_blank" rel="noopener">JEP 189: Shenandoah: A Low-Pause-Time Garbage Collector (Experimental)</a><br><a href="https://openjdk.org/jeps/379" target="_blank" rel="noopener">JEP 379: Shenandoah: A Low-Pause-Time Garbage Collector (Production)</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Elastic metaspace</span><span class="since">16</span></summary><div class="body">
       <p>Class metadata memory is returned to the OS promptly and fragments less. Helps apps with heavy class loading/unloading (hot redeploys, many proxies).</p>
@@ -535,15 +558,15 @@ case Rectangle(Point(var x, _), _) -&gt; use(x);</code></pre>
       <p class="jep"><a href="https://openjdk.org/jeps/458" target="_blank" rel="noopener">JEP 458: Launch Multi-File Source-Code Programs</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Compact object headers</span><span class="since">25</span></summary><div class="body">
-      <p>Header shrinks from 16 to 8 bytes: smaller heap, often less GC work. Product feature but <strong>off by default</strong>; test with your workload.</p>
+      <p>Header shrinks from 12–16 bytes to 8 bytes: smaller heap, often less GC work. Product feature in 25 but <strong>off by default</strong> (on by default from 27, see Java 29); test with your workload.</p>
 <pre><code>java -XX:+UseCompactObjectHeaders -jar app.jar</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/519" target="_blank" rel="noopener">JEP 519: Compact Object Headers</a> &middot; <a href="https://openjdk.org/jeps/450" target="_blank" rel="noopener">JEP 450: Compact Object Headers (Experimental)</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/519" target="_blank" rel="noopener">JEP 519: Compact Object Headers</a><br><a href="https://openjdk.org/jeps/450" target="_blank" rel="noopener">JEP 450: Compact Object Headers (Experimental)</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">AOT cache (Project Leyden)</span><span class="since">24–25</span></summary><div class="body">
       <p>Pre-parsed, pre-linked classes plus method profiles: faster startup and warmup, builds on CDS. Must match the same JVM and class path; create it at build time.</p>
 <pre><code>java -XX:AOTCacheOutput=app.aot -jar app.jar   # training run
 java -XX:AOTCache=app.aot -jar app.jar         # production</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/483" target="_blank" rel="noopener">JEP 483: Ahead-of-Time Class Loading &amp; Linking</a> &middot; <a href="https://openjdk.org/jeps/514" target="_blank" rel="noopener">JEP 514: Ahead-of-Time Command-Line Ergonomics</a> &middot; <a href="https://openjdk.org/jeps/515" target="_blank" rel="noopener">JEP 515: Ahead-of-Time Method Profiling</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/483" target="_blank" rel="noopener">JEP 483: Ahead-of-Time Class Loading &amp; Linking</a><br><a href="https://openjdk.org/jeps/514" target="_blank" rel="noopener">JEP 514: Ahead-of-Time Command-Line Ergonomics</a><br><a href="https://openjdk.org/jeps/515" target="_blank" rel="noopener">JEP 515: Ahead-of-Time Method Profiling</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name"><code>synchronized</code> no longer pins virtual threads</span><span class="since">24</span></summary><div class="body">
       <p>Removes the biggest virtual-thread caveat of 21; no need to rewrite to <code>ReentrantLock</code>. Remaining pinning: native frames, some class-init blocking.</p>
@@ -557,7 +580,7 @@ java -XX:AOTCache=app.aot -jar app.jar         # production</code></pre>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Which GC in 25?</span><span class="since">22–25</span></summary><div class="body">
       <p><strong>G1</strong> (default): balanced, fine for most services. <strong>Parallel:</strong> batch throughput. <strong>Serial:</strong> tiny heaps. <strong>ZGC:</strong> now generational only (non-generational removed in 24): low tail latency on large heaps. <strong>Shenandoah:</strong> optional generational mode, not in Oracle JDK. <strong>Epsilon:</strong> benchmarks only. Rule of thumb: stay on G1 until tail latency or heap size proves a problem.</p>
-      <p class="jep"><a href="https://openjdk.org/jeps/474" target="_blank" rel="noopener">JEP 474: ZGC: Generational Mode by Default</a> &middot; <a href="https://openjdk.org/jeps/490" target="_blank" rel="noopener">JEP 490: ZGC: Remove the Non-Generational Mode</a> &middot; <a href="https://openjdk.org/jeps/521" target="_blank" rel="noopener">JEP 521: Generational Shenandoah</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/474" target="_blank" rel="noopener">JEP 474: ZGC: Generational Mode by Default</a><br><a href="https://openjdk.org/jeps/490" target="_blank" rel="noopener">JEP 490: ZGC: Remove the Non-Generational Mode</a><br><a href="https://openjdk.org/jeps/521" target="_blank" rel="noopener">JEP 521: Generational Shenandoah</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">JFR CPU-time profiling</span><span class="since">25</span></summary><div class="body">
       <p>Experimental, Linux only: samples by CPU time instead of wall-clock time.</p>
@@ -609,7 +632,7 @@ CURRENT_USER.get();   // anywhere deeper in the call tree</code></pre>
 
     <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Post-quantum crypto: ML-KEM and ML-DSA</span><span class="since">24</span></summary><div class="body">
       <p>ML-KEM (key encapsulation) and ML-DSA (signatures) arrived in 24.</p>
-      <p class="jep"><a href="https://openjdk.org/jeps/496" target="_blank" rel="noopener">JEP 496: Quantum-Resistant Module-Lattice-Based Key Encapsulation Mechanism</a> &middot; <a href="https://openjdk.org/jeps/497" target="_blank" rel="noopener">JEP 497: Quantum-Resistant Module-Lattice-Based Digital Signature Algorithm</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/496" target="_blank" rel="noopener">JEP 496: Quantum-Resistant Module-Lattice-Based Key Encapsulation Mechanism</a><br><a href="https://openjdk.org/jeps/497" target="_blank" rel="noopener">JEP 497: Quantum-Resistant Module-Lattice-Based Digital Signature Algorithm</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Key Derivation Function API</span><span class="since">25</span></summary><div class="body">
       <p>Standard API for key derivation functions such as HKDF; final in 25.</p>
@@ -645,7 +668,7 @@ int add(int a, int b) { return a + b; }</code></pre>
     <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name"><code>sun.misc.Unsafe</code> memory access: warnings</span><span class="since">23–24</span></summary><div class="body">
       <p>Memory-access methods are deprecated for removal (23) and warn on first use (24). Libraries like Netty and Kryo are migrating to <code>VarHandle</code> and FFM. Check your dependencies when upgrading.</p>
 <pre><code>--sun-misc-unsafe-memory-access=allow|warn|debug|deny</code></pre>
-      <p class="jep"><a href="https://openjdk.org/jeps/471" target="_blank" rel="noopener">JEP 471: Deprecate the Memory-Access Methods in sun.misc.Unsafe for Removal</a> &middot; <a href="https://openjdk.org/jeps/498" target="_blank" rel="noopener">JEP 498: Warn upon Use of Memory-Access Methods in sun.misc.Unsafe</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/471" target="_blank" rel="noopener">JEP 471: Deprecate the Memory-Access Methods in sun.misc.Unsafe for Removal</a><br><a href="https://openjdk.org/jeps/498" target="_blank" rel="noopener">JEP 498: Warn upon Use of Memory-Access Methods in sun.misc.Unsafe</a></p></div></details></li>
 
     <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">JNI and native access warnings</span><span class="since">24</span></summary><div class="body">
       <p>Using JNI or FFM now warns unless native access is enabled for the module; it will become stricter later.</p>
@@ -658,7 +681,7 @@ int add(int a, int b) { return a + b; }</code></pre>
 
     <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">String Templates dropped</span><span class="since">23</span></summary><div class="body">
       <p>Previewed in 21 and 22, removed in 23 pending a redesign. Don't build on them.</p>
-      <p class="jep"><a href="https://openjdk.org/jeps/430" target="_blank" rel="noopener">JEP 430: String Templates (Preview)</a> &middot; <a href="https://openjdk.org/jeps/459" target="_blank" rel="noopener">JEP 459: String Templates (Second Preview)</a></p></div></details></li>
+      <p class="jep"><a href="https://openjdk.org/jeps/430" target="_blank" rel="noopener">JEP 430: String Templates (Preview)</a><br><a href="https://openjdk.org/jeps/459" target="_blank" rel="noopener">JEP 459: String Templates (Second Preview)</a></p></div></details></li>
 
     <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Windows 32-bit x86 port</span><span class="since">24</span></summary><div class="body">
       <p>Deprecated for removal in 21, removed in 24.</p>
@@ -670,7 +693,120 @@ int add(int a, int b) { return a + b; }</code></pre>
   </ul>
 </section>
 
-<footer>Next LTS: Java 29 (September 2027).</footer>
+<!-- ================= JAVA 29 (UNRELEASED) ================= -->
+<section class="lts unreleased" id="j29">
+  <h2>Java 29 <small>covers 26–29</small> <span class="badge-unreleased">Unreleased</span></h2>
+  <p class="takeaway">So far mostly runtime changes: G1 and compact headers by default, structured concurrency going final. Value classes are the big preview, and there are no final language features yet.</p>
+  <div class="banner" role="note">
+    <strong class="label">Unreleased &mdash; work in progress.</strong>
+    Java 29 is the next LTS, planned for September 2027, and does not exist yet. This section collects what is already known on the way there.
+    <strong>Java 26</strong> (March 2026) and <strong>Java 27</strong> (September 2026) are released, so their items are final and worth adopting now.
+    <strong>Java 28</strong> (March 2027) is in development: its items reflect JEP status as of 18 October 2026 and can still change.
+    <strong>Java 29</strong> has no targeted JEPs yet. Keep adding features here as each release ships.
+  </div>
+  <ul class="features">
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">G1 is the default GC everywhere</span><span class="since">27</span></summary><div class="body">
+      <p>Before 27 the JVM silently picked Serial GC on machines with under 2 CPUs or about 1.8 GB RAM, so small containers ran a different collector than your laptop. From 27, G1 is chosen in all environments. Re-check GC flags and heap sizing for tiny containers.</p>
+<pre><code>-XX:+UseSerialGC   # still available explicitly</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/523" target="_blank" rel="noopener">JEP 523: Make G1 the Default Garbage Collector in All Environments</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Compact object headers on by default</span><span class="since">27</span></summary><div class="body">
+      <p>Shipped as an opt-in product feature in 25; on by default from 27. Object headers shrink from 96 to 64 bits on 64-bit platforms. Opt out if a native agent or tool assumes the old layout.</p>
+<pre><code>-XX:-UseCompactObjectHeaders</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/534" target="_blank" rel="noopener">JEP 534: Compact Object Headers by Default</a><br><a href="https://openjdk.org/jeps/519" target="_blank" rel="noopener">JEP 519: Compact Object Headers</a><br><a href="https://openjdk.org/jeps/450" target="_blank" rel="noopener">JEP 450: Compact Object Headers (Experimental)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">G1: less synchronization, better throughput</span><span class="since">26</span></summary><div class="body">
+      <p>Reduces synchronization between application threads and GC threads to improve throughput. Nothing to configure.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/522" target="_blank" rel="noopener">JEP 522: G1 GC: Improve Throughput by Reducing Synchronization</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">AOT object caching with any GC</span><span class="since">26</span></summary><div class="body">
+      <p>Project Leyden: the AOT cache from 24 and 25 can now be used with any collector, including ZGC.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/516" target="_blank" rel="noopener">JEP 516: Ahead-of-Time Object Caching with Any GC</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">JFR in-process data redaction</span><span class="since">27</span></summary><div class="body">
+      <p>Sensitive data such as command-line arguments, environment variables and system properties is redacted inside the process before it reaches JFR output.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/536" target="_blank" rel="noopener">JEP 536: JFR In-Process Data Redaction</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Ahead-of-Time Code Compilation</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Project Leyden continues: ahead-of-time code compilation builds on the AOT cache (class loading and linking in 24, method profiles in 25) for faster startup and warmup. Integrated, not yet released.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/544" target="_blank" rel="noopener">JEP 544: Ahead-of-Time Code Compilation</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">ZGC: faster startup and warmup</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Targeted for 28.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/545" target="_blank" rel="noopener">JEP 545: Faster Startup and Warmup with ZGC</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">ZGC: adaptive heap sizing</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Targeted for 28.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/546" target="_blank" rel="noopener">JEP 546: Adaptive Heap Sizing for ZGC</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag jvm">JVM</span><span class="name">Shenandoah: generational mode by default</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Targeted for 28: generational becomes the default, and the non-generational mode is to be deprecated with the intent to remove it later.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/535" target="_blank" rel="noopener">JEP 535: Shenandoah GC: Generational Mode by Default</a><br><a href="https://openjdk.org/jeps/521" target="_blank" rel="noopener">JEP 521: Generational Shenandoah</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">HTTP/3 in <code>HttpClient</code></span><span class="since">26</span></summary><div class="body">
+      <p>The standard HTTP client can speak HTTP/3 (QUIC). Opt-in; it falls back to older protocol versions when the server does not support it.</p>
+<pre><code>var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_3).build();</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/517" target="_blank" rel="noopener">JEP 517: HTTP/3 for the HTTP Client API</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Post-quantum hybrid key exchange in TLS 1.3</span><span class="since">27</span></summary><div class="body">
+      <p>TLS 1.3 gets a hybrid key exchange (classical plus ML-KEM) built into the JDK, with no external provider. It follows ML-KEM, which arrived in 24.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/527" target="_blank" rel="noopener">JEP 527: Post-Quantum Hybrid Key Exchange for TLS 1.3</a><br><a href="https://openjdk.org/jeps/496" target="_blank" rel="noopener">JEP 496: Quantum-Resistant Module-Lattice-Based Key Encapsulation Mechanism</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Structured concurrency becomes final</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>After seven previews (21 to 27), JEP 543 makes the API final in 28 (integrated, not yet released): no more <code>--enable-preview</code>. Use the 25 or 27 preview to get ready.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/543" target="_blank" rel="noopener">JEP 543: Structured Concurrency</a><br><a href="https://openjdk.org/jeps/533" target="_blank" rel="noopener">JEP 533: Structured Concurrency (Seventh Preview)</a><br><a href="https://openjdk.org/jeps/525" target="_blank" rel="noopener">JEP 525: Structured Concurrency (Sixth Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">PEM encodings become final</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Encode and decode PEM-format keys and certificates without third-party code. Final in 28 after previews in 25, 26 and 27.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/542" target="_blank" rel="noopener">JEP 542: PEM Encodings of Cryptographic Objects</a><br><a href="https://openjdk.org/jeps/538" target="_blank" rel="noopener">JEP 538: PEM Encodings of Cryptographic Objects (Third Preview)</a><br><a href="https://openjdk.org/jeps/524" target="_blank" rel="noopener">JEP 524: PEM Encodings of Cryptographic Objects (Second Preview)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag lib">Lib</span><span class="name">Vector API (still incubating)</span><span class="since">26–27</span></summary><div class="body">
+      <p>Eleventh and twelfth incubation rounds, with no substantial changes. Still waiting on Project Valhalla.</p>
+<pre><code>--add-modules jdk.incubator.vector</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/529" target="_blank" rel="noopener">JEP 529: Vector API (Eleventh Incubator)</a><br><a href="https://openjdk.org/jeps/537" target="_blank" rel="noopener">JEP 537: Vector API (Twelfth Incubator)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Value objects (value classes)</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Project Valhalla’s first big step: classes without object identity, compared by state and flattenable by the JVM. Preview in 28 (integrated, not yet released). Expect behavior changes: with preview enabled, early-access builds report <code>Integer</code> values above 127 comparing equal with <code>==</code>.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/401" target="_blank" rel="noopener">JEP 401: Value Objects (Preview)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Strict field initialization in the JVM</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>JVM-level feature for compilers: a strict field must be initialized before it is read, so default values (0, null) are never observed. Needed by value classes.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/539" target="_blank" rel="noopener">JEP 539: Strict Field Initialization in the JVM (Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Simple JSON API (incubator)</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>A standard API to parse and generate JSON without an external library. Incubator module in 28 (integrated, not yet released).</p>
+<pre><code>--add-modules jdk.incubator.json</code></pre>
+      <p class="jep"><a href="https://openjdk.org/jeps/540" target="_blank" rel="noopener">JEP 540: Simple JSON API (Incubator)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Lazy Constants</span><span class="since">26–27</span></summary><div class="body">
+      <p>The successor of Stable Values from 25: unmodifiable values the JVM can optimize, initialized lazily. The API has been renamed and reshaped across previews, so don’t build on it yet. Third preview in 27.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/526" target="_blank" rel="noopener">JEP 526: Lazy Constants (Second Preview)</a><br><a href="https://openjdk.org/jeps/531" target="_blank" rel="noopener">JEP 531: Lazy Constants (Third Preview)</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Primitive types in patterns (<code>switch</code>)</span><span class="since">26–27</span></summary><div class="body">
+      <p>Fourth preview in 26, fifth in 27: patterns, <code>instanceof</code> and <code>switch</code> over primitive types. Not final yet.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/530" target="_blank" rel="noopener">JEP 530: Primitive Types in Patterns, instanceof, and switch (Fourth Preview)</a><br><a href="https://openjdk.org/jeps/532" target="_blank" rel="noopener">JEP 532: Primitive Types in Patterns, instanceof, and switch (Fifth Preview)</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag prev">Preview</span><span class="name">Watch list for Java 29</span><span class="since">29</span></summary><div class="body">
+      <p>Nothing is targeted to 29 yet. Draft or submitted proposals worth watching: disallowing dynamic agent loading by default, a sixth preview of primitive patterns, and code reflection (Project Babylon). Treat them as candidates, not commitments.</p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">Final means final: reflection warnings</span><span class="since">26</span></summary><div class="body">
+      <p>Mutating <code>final</code> fields through deep reflection now produces warnings. A future release will block it by default, which will affect serialization, mocking and injection libraries that do this.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/500" target="_blank" rel="noopener">JEP 500: Prepare to Make Final Mean Final</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag dep">Deprecated</span><span class="name">macOS/x64 port deprecated for removal</span><span class="since">28 &middot; in development</span></summary><div class="body">
+      <p>Apple no longer supports Intel Macs; the Intel macOS port is deprecated for removal. Apple Silicon (AArch64) is unaffected.</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/541" target="_blank" rel="noopener">JEP 541: Deprecate the macOS/x64 Port for Removal</a></p></div></details></li>
+
+    <li class="minor"><details class="feature"><summary><span class="tag rem">Removed</span><span class="name">Applet API removed</span><span class="since">26</span></summary><div class="body">
+      <p>The long-deprecated <code>java.applet</code> API is gone (deprecated in 9, for removal in 17).</p>
+      <p class="jep"><a href="https://openjdk.org/jeps/504" target="_blank" rel="noopener">JEP 504: Remove the Applet API</a></p></div></details></li>
+
+    <li><details class="feature"><summary><span class="tag rem">Removed</span><span class="name"><code>-noverify</code> and <code>-Xverify:none</code> removed</span><span class="since">27</span></summary><div class="body">
+      <p>The options that disabled bytecode verification (<code>-noverify</code>, <code>-Xverify:none</code>, <code>-verifyremote</code>) and <code>-noclassgc</code> were removed. Check start scripts and JVM option files, since an unknown option stops startup.</p></div></details></li>
+  </ul>
+</section>
+
+<footer>Java 29 (planned for September 2027) is not released yet; see its section above.</footer>
 </main>
 
 <script>
@@ -710,6 +846,23 @@ int add(int a, int b) { return a + b; }</code></pre>
   });
   allChip.onclick = function () { active = {}; applyFilter(); };
   document.getElementById("minor-toggle").onchange = applyFilter;
+
+  // Theme switcher: Auto (follow system) -> Light -> Dark
+  var themeBtn = document.getElementById("theme-toggle");
+  var modes = ["auto", "light", "dark"];
+  var mode = "auto";
+  try { var saved = localStorage.getItem("theme"); if (modes.indexOf(saved) > 0) mode = saved; } catch (e) {}
+  function showTheme() {
+    if (mode === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", mode);
+    themeBtn.textContent = "Theme: " + mode.charAt(0).toUpperCase() + mode.slice(1);
+  }
+  themeBtn.onclick = function () {
+    mode = modes[(modes.indexOf(mode) + 1) % modes.length];
+    try { localStorage.setItem("theme", mode); } catch (e) {}
+    showTheme();
+  };
+  showTheme();
   applyFilter();
 })();
 </script>
